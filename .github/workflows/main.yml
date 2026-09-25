@@ -1,4 +1,4 @@
-name: Generate Stats Images
+name: Generate GitHub Statistics
 
 on:
   push:
@@ -11,48 +11,54 @@ on:
 permissions:
   contents: write
 
-defaults:
-  run:
-    shell: bash -euxo pipefail {0}
-
 jobs:
-  build:
+  generate:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v6
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-    - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29  # v2 tag
-      with:
-        version: 0.16.0
+      - name: Setup Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29
+        with:
+          version: 0.16.0
 
-    - name: Build
-      run: |
-        zig build
+      - name: Build
+        run: zig build
 
-    - name: Checkout history branch
-      run: |
-        git config --global user.name "Sukumar-Elley/github-stats"
-        git config --global user.email "github-stats[bot]@users.noreply.github.com"
-        # Push generated files to the generated branch
-        git pull
-        git checkout generated || git checkout -b generated
+      - name: Prepare generated branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        run: |
+          git config user.name "Sukumar-Elley/github-stats"
+          git config user.email "github-stats[bot]@users.noreply.github.com"
 
-    - name: Generate images
-      run: |
-        ./zig-out/bin/github-stats
-      env:
-        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        EXCLUDE_REPOS: ${{ secrets.EXCLUDE_REPOS }}
-        EXCLUDE_LANGS: ${{ secrets.EXCLUDE_LANGS }}
-        EXCLUDE_PRIVATE: "false"
-        SILENT: "true"
-        # TODO: Remove this when they get their API working again
-        # https://github.com/orgs/community/discussions/192970
-        MAX_RETRIES: 5
+          if git ls-remote --exit-code --heads origin generated >/dev/null 2>&1; then
+            git fetch origin generated
+            git checkout -B generated origin/generated
+          else
+            git checkout -B generated
+          fi
 
-    - name: Commit to the repo
-      run: |
-        git add .
-        # Force the build to succeed, even if no files were changed
-        git commit -m 'Update generated files' || true
-        git push --set-upstream origin generated
+      - name: Generate SVG statistics
+        env:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          EXCLUDE_REPOS: ${{ secrets.EXCLUDE_REPOS }}
+          EXCLUDE_LANGS: ${{ secrets.EXCLUDE_LANGS }}
+          EXCLUDE_PRIVATE: "false"
+          SILENT: "true"
+          MAX_RETRIES: "5"
+        run: |
+          ./zig-out/bin/github-stats
+
+      - name: Commit generated files
+        run: |
+          git add overview.svg languages.svg
+          git diff --cached --quiet || git commit -m "Update GitHub statistics"
+
+      - name: Push generated branch
+        run: |
+          git push origin generated
