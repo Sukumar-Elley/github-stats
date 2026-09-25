@@ -112,7 +112,3 @@ Original project:
 - [jstrieb/github-stats](https://github.com/jstrieb/github-stats)
 
 This repository contains modified/redistributed GPL-licensed upstream material. The original `LICENSE` is preserved. Changes in this repository are intended to remain distinguishable from the upstream project.
-
-## Status
-
-This repository is intended to run as a self-hosted GitHub Actions statistics pipeline for the `Sukumar-Elley` profile.
